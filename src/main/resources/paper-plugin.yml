@@ -1,5 +1,5 @@
 name: statisticsSaver
-version: '0.1.0'
+version: '0.1.1'
 main: com.miaomc.statisticsSaver.StatisticsSaver
 api-version: '1.21'
 prefix: StatisticSaver
@@ -14,7 +14,7 @@ commands:
     usage: /ssaver <reload|help>
     aliases: [ statsaver ]
     permission: statisticssaver.use
-    
+
 permissions:
   statisticssaver.admin:
     description: 允许管理 StatisticsSaver 插件

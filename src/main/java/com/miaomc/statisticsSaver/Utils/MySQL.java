@@ -17,7 +17,11 @@ public class MySQL {
     private final String tableName;
     private final String serverName;
 
-    // 构造方法
+    /**
+     * 构造方法
+     *
+     * @param plugin 插件实例
+     */
     public MySQL(StatisticsSaver plugin) {
         this.plugin = plugin;
         FileConfiguration config = plugin.getConfig();
@@ -27,7 +31,9 @@ public class MySQL {
         setupPool();
     }
 
-    // 设置连接池
+    /**
+     * 设置数据库连接池
+     */
     private void setupPool() {
         FileConfiguration config = plugin.getConfig();
         String host = config.getString("database.host", "localhost");
@@ -37,11 +43,16 @@ public class MySQL {
         String password = config.getString("database.password", "");
 
         HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + dbName + "?useSSL=false&autoReconnect=true");
+        hikariConfig.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + dbName +
+                "?useSSL=false&autoReconnect=true&useUnicode=true&characterEncoding=utf8");
         hikariConfig.setUsername(username);
         hikariConfig.setPassword(password);
         hikariConfig.setMaximumPoolSize(10);
         hikariConfig.setConnectionTimeout(30000);
+        hikariConfig.setPoolName("StatisticsSaver-Pool");
+        hikariConfig.setMinimumIdle(3);
+        hikariConfig.setIdleTimeout(60000);
+        hikariConfig.setMaxLifetime(1800000);
 
         try {
             dataSource = new HikariDataSource(hikariConfig);
@@ -50,7 +61,11 @@ public class MySQL {
         }
     }
 
-    // 测试数据库连接
+    /**
+     * 测试数据库连接
+     *
+     * @return 连接是否成功
+     */
     public boolean testConnection() {
         if (dataSource == null) {
             return false;
@@ -70,7 +85,9 @@ public class MySQL {
         }
     }
 
-    // 初始化数据库表
+    /**
+     * 初始化数据库表
+     */
     public void initialize() {
         CompletableFuture.runAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
@@ -84,7 +101,12 @@ public class MySQL {
         });
     }
 
-    // 检查表是否存在，如果不存在则创建，检查表结构
+    /**
+     * 检查表是否存在，如果不存在则创建，检查表结构
+     *
+     * @param connection 数据库连接
+     * @throws SQLException SQL异常
+     */
     private void checkAndInitializeTable(Connection connection) throws SQLException {
         DatabaseMetaData meta = connection.getMetaData();
         boolean tableExists;
@@ -100,7 +122,12 @@ public class MySQL {
         }
     }
 
-    // 创建表
+    /**
+     * 创建表
+     *
+     * @param connection 数据库连接
+     * @throws SQLException SQL异常
+     */
     private void createTable(Connection connection) throws SQLException {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " ("
                 + "id INT AUTO_INCREMENT PRIMARY KEY, "
@@ -110,6 +137,7 @@ public class MySQL {
                 + "dataVersion VARCHAR(20) NOT NULL, "
                 + "updateDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, "
                 + "createDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+                + "UNIQUE KEY unique_player_server (uuid, serverName), "
                 + "INDEX idx_uuid (uuid)"
                 + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 
@@ -119,10 +147,17 @@ public class MySQL {
         }
     }
 
-    // 验证并更新表列
+    /**
+     * 验证并更新表列
+     *
+     * @param connection 数据库连接
+     * @throws SQLException SQL异常
+     */
     private void verifyAndUpdateColumns(Connection connection) throws SQLException {
         DatabaseMetaData meta = connection.getMetaData();
+        Statement statement = connection.createStatement();
 
+        // 检查表中的列
         try (ResultSet columns = meta.getColumns(null, null, tableName, null)) {
             boolean hasUUID = false;
             boolean hasServerName = false;
@@ -156,31 +191,55 @@ public class MySQL {
             }
 
             // 添加缺少的列
-            try (Statement statement = connection.createStatement()) {
-                if (!hasUUID) {
-                    statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN uuid VARCHAR(36) NOT NULL");
-                }
-                if (!hasServerName) {
-                    statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN serverName VARCHAR(50) NOT NULL");
-                }
-                if (!hasData) {
-                    statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN data LONGTEXT NOT NULL");
-                }
-                if (!hasDataVersion) {
-                    statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN dataVersion VARCHAR(20) NOT NULL");
-                }
-                if (!hasUpdateDate) {
-                    statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN updateDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-                }
-                if (!hasCreateDate) {
-                    statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN createDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+            if (!hasUUID) {
+                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN uuid VARCHAR(36) NOT NULL");
+            }
+            if (!hasServerName) {
+                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN serverName VARCHAR(50) NOT NULL");
+            }
+            if (!hasData) {
+                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN data LONGTEXT NOT NULL");
+            }
+            if (!hasDataVersion) {
+                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN dataVersion VARCHAR(20) NOT NULL");
+            }
+            if (!hasUpdateDate) {
+                statement.executeUpdate("ALTER TABLE " + tableName +
+                        " ADD COLUMN updateDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+            }
+            if (!hasCreateDate) {
+                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN createDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+            }
+        }
+
+        // 检查唯一索引
+        boolean hasUniqueIndex = false;
+        try (ResultSet indexInfo = meta.getIndexInfo(null, null, tableName, true, false)) {
+            while (indexInfo.next()) {
+                String indexName = indexInfo.getString("INDEX_NAME");
+                if ("unique_player_server".equalsIgnoreCase(indexName)) {
+                    hasUniqueIndex = true;
+                    break;
                 }
             }
         }
+
+        // 添加缺少的唯一索引
+        if (!hasUniqueIndex) {
+            try {
+                statement.executeUpdate("ALTER TABLE " + tableName +
+                        " ADD CONSTRAINT unique_player_server UNIQUE (uuid, serverName)");
+                plugin.getLogger().info("为表 " + tableName + " 添加唯一索引 unique_player_server");
+            } catch (SQLException e) {
+                plugin.getLogger().warning("添加唯一索引失败: " + e.getMessage());
+            }
+        }
+
+        statement.close();
     }
 
     /**
-     * 插入数据到数据库
+     * 保存数据到数据库（存在则更新，不存在则插入）
      * 根据配置决定是同步还是异步执行
      *
      * @param uuid        玩家UUID
@@ -188,25 +247,26 @@ public class MySQL {
      * @param dataVersion 数据版本
      * @return 操作结果的Future
      */
-    public CompletableFuture<Boolean> insertData(String uuid, JSONObject data, String dataVersion) {
+    public CompletableFuture<Boolean> saveData(String uuid, JSONObject data, String dataVersion) {
         if (plugin.getConfig().getBoolean("settings.saveAsync", true)) {
-            return insertDataAsync(uuid, data, dataVersion);
+            return saveDataAsync(uuid, data, dataVersion);
         } else {
-            return doInsertData(uuid, data.toJSONString(), dataVersion);
+            return doSaveData(uuid, data.toJSONString(), dataVersion);
         }
     }
 
     /**
-     * 执行实际的数据插入操作
+     * 执行实际的数据保存操作（存在则更新，不存在则插入）
      *
      * @param uuid        玩家UUID
      * @param jsonData    JSON字符串数据
      * @param dataVersion 数据版本
      * @return 操作结果的Future
      */
-    private CompletableFuture<Boolean> doInsertData(String uuid, String jsonData, String dataVersion) {
+    private CompletableFuture<Boolean> doSaveData(String uuid, String jsonData, String dataVersion) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "INSERT INTO " + tableName + " (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?)";
+            String sql = "INSERT INTO " + tableName + " (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
+                    "ON DUPLICATE KEY UPDATE data = ?, dataVersion = ?, updateDate = CURRENT_TIMESTAMP";
 
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -215,14 +275,16 @@ public class MySQL {
                 statement.setString(2, serverName);
                 statement.setString(3, jsonData);
                 statement.setString(4, dataVersion);
+                statement.setString(5, jsonData);
+                statement.setString(6, dataVersion);
 
-                int rowsInserted = statement.executeUpdate();
+                int rowsAffected = statement.executeUpdate();
 
                 if (plugin.getConfig().getBoolean("settings.showSaveMessages", true)) {
                     plugin.getLogger().info("已保存玩家 " + uuid + " 在服务器 " + serverName + " 的数据");
                 }
 
-                return rowsInserted > 0;
+                return rowsAffected > 0;
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "保存玩家 " + uuid + " 的数据失败", e);
                 return false;
@@ -231,20 +293,21 @@ public class MySQL {
     }
 
     /**
-     * 使用Bukkit调度器异步插入数据
+     * 使用Bukkit调度器异步保存数据
      *
      * @param uuid        玩家UUID
      * @param data        玩家数据
      * @param dataVersion 数据版本
      * @return 操作结果的Future
      */
-    private CompletableFuture<Boolean> insertDataAsync(String uuid, JSONObject data, String dataVersion) {
+    private CompletableFuture<Boolean> saveDataAsync(String uuid, JSONObject data, String dataVersion) {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                String sql = "INSERT INTO " + tableName + " (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?)";
+                String sql = "INSERT INTO " + tableName + " (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
+                        "ON DUPLICATE KEY UPDATE data = ?, dataVersion = ?, updateDate = CURRENT_TIMESTAMP";
 
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -253,14 +316,16 @@ public class MySQL {
                     statement.setString(2, serverName);
                     statement.setString(3, data.toJSONString());
                     statement.setString(4, dataVersion);
+                    statement.setString(5, data.toJSONString());
+                    statement.setString(6, dataVersion);
 
-                    int rowsInserted = statement.executeUpdate();
+                    int rowsAffected = statement.executeUpdate();
 
                     if (plugin.getConfig().getBoolean("settings.showSaveMessages", true)) {
                         plugin.getLogger().info("已异步保存玩家 " + uuid + " 在服务器 " + serverName + " 的数据");
                     }
 
-                    future.complete(rowsInserted > 0);
+                    future.complete(rowsAffected > 0);
                 } catch (SQLException e) {
                     plugin.getLogger().log(Level.SEVERE, "异步保存玩家 " + uuid + " 的数据失败", e);
                     future.complete(false);
@@ -271,7 +336,39 @@ public class MySQL {
         return future;
     }
 
-    // 关闭连接池
+    /**
+     * 从数据库获取玩家数据
+     *
+     * @param uuid 玩家UUID
+     * @return 包含玩家数据的JSONObject，如果没有找到则返回null
+     */
+    public CompletableFuture<JSONObject> getPlayerData(String uuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT data FROM " + tableName + " WHERE uuid = ? AND serverName = ?";
+
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+
+                statement.setString(1, uuid);
+                statement.setString(2, serverName);
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        String jsonData = resultSet.getString("data");
+                        return JSONObject.parseObject(jsonData);
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "获取玩家 " + uuid + " 数据失败", e);
+            }
+
+            return null;
+        });
+    }
+
+    /**
+     * 关闭连接池
+     */
     public void close() {
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
@@ -279,16 +376,23 @@ public class MySQL {
         }
     }
 
-    // MySQL.java 中添加重新初始化连接池的方法
+    /**
+     * 重新初始化连接池
+     */
     public void reInitialize() {
-        // 如果连接池存在且已关闭，重新创建
-        if (dataSource == null || dataSource.isClosed()) {
-            setupPool();
+        // 如果连接池存在且未关闭，先关闭
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
         }
+
+        // 重新创建连接池
+        setupPool();
 
         if (testConnection()) {
             initialize();
             plugin.getLogger().info("数据库连接池已重新初始化");
+        } else {
+            plugin.getLogger().severe("数据库重新初始化失败，无法建立连接");
         }
     }
 }
