@@ -5,8 +5,9 @@ database:
   name: dbName # 数据库名称
   username: userName # 数据库用户名
   password: userPassword # 数据库密码
-  tableName: playerStatistics # 创建数据表时的前缀
+  tableName: playerStatistics # 创建的数据表的名称
 settings:
-  serverName: root # 用于区分子服
+  serverName: root # 默认 root 用于区分子服
   showSaveMessages: true # 控制台是否输出保存信息
   saveAsync: true # 是否异步保存数据
+  minSessionTime: 60 #设置成0关闭，默认60秒，最小停留时间，单位秒(在该时段内退出不会出发保存操作，防止频繁保存)

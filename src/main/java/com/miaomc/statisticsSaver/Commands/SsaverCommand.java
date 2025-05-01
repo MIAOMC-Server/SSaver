@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class SsaverCommand implements CommandExecutor, TabCompleter {
@@ -24,13 +25,13 @@ public class SsaverCommand implements CommandExecutor, TabCompleter {
     public void register() {
         Command command = new Command("ssaver") {
             @Override
-            public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+            public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String @NotNull [] args) {
                 return SsaverCommand.this.onCommand(sender, this, commandLabel, args);
             }
 
             @Override
-            public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) {
-                return SsaverCommand.this.onTabComplete(sender, this, alias, args);
+            public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
+                return Objects.requireNonNull(SsaverCommand.this.onTabComplete(sender, this, alias, args));
             }
         };
 

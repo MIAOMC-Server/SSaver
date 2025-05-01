@@ -1,7 +1,7 @@
 # StatisticsSaver
 
 StatisticsSaver 是一个用于 Minecraft Paper 服务器的插件，主要功能是保存玩家统计数据。此插件可以将玩家的统计数据保存到
-MySQL 数据库中，方便服务器管理员进行数据分析和备份。
+MySQL 数据库中，可配合后端获取玩家游戏信息，便于在网站上展示。
 
 ## 功能特点
 
@@ -29,12 +29,17 @@ MySQL 数据库中，方便服务器管理员进行数据分析和备份。
 
 ```yaml
 mysql:
-  host: localhost
-  port: 3306
-  database: minecraft_stats
-  username: root
-  password: your_password
-  tablePrefix: stats_
+  host: localhost # 数据库主机地址
+  port: 3306 # 数据库端口
+  database: minecraft_stats # 数据库名称
+  username: root # 数据库用户名
+  password: your_password # 数据库密码
+  tableName: playerStatistics # 创建的数据表的名称
+settings:
+  serverName: root # 用于区分子服
+  showSaveMessages: true # 控制台是否输出保存信息
+  saveAsync: true # 是否异步保存数据
+  minSessionTime: 60 #最小停留时间，单位秒(在该时段内退出不会出发保存操作，防止频繁保存)
 ```
 
 ## 命令和权限
@@ -47,12 +52,13 @@ mysql:
 ### 权限
 
 - `statisticssaver.admin` - 允许使用管理命令（如 reload）
+- `statisticssaver.track` - 默认开，是否允许玩家被统计
 
 ## 开发信息
 
 本项目使用 Maven 构建，开发环境要求：
 
-- Java 17
+- Java 21
 - Maven 3.6+
 - 依赖：Paper API 1.21.4
 

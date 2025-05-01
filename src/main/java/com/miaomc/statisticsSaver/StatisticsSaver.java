@@ -1,7 +1,7 @@
 package com.miaomc.statisticsSaver;
 
 import com.miaomc.statisticsSaver.Commands.SsaverCommand;
-import com.miaomc.statisticsSaver.Listener.savePlayerData;
+import com.miaomc.statisticsSaver.Listener.SavePlayerData;
 import com.miaomc.statisticsSaver.Utils.MySQL;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -25,7 +25,7 @@ public final class StatisticsSaver extends JavaPlugin {
         mySQL.initialize();
 
         // 注册事件监听器
-        getServer().getPluginManager().registerEvents(new savePlayerData(this), this);
+        getServer().getPluginManager().registerEvents(new SavePlayerData(this), this);
 
         // 创建命令处理器实例
         SsaverCommand commandHandler = new SsaverCommand(this);
