@@ -39,6 +39,7 @@ jobs:
           prerelease: false
           files: |
             target/statisticsSaver-*.jar
+          token: ${{ secrets.RELEASE_TOKEN }}
           body: |
             ## 📦 StatisticsSaver 插件 ${{ steps.get_version.outputs.VERSION }} 发布
             
