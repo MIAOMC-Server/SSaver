@@ -1,0 +1,12 @@
+# 数据库配置
+database:
+  host: localhost # 数据库主机地址
+  port: 3306 # 数据库端口
+  name: dbName # 数据库名称
+  username: userName # 数据库用户名
+  password: userPassword # 数据库密码
+  tableName: playerStatistics # 创建数据表时的前缀
+settings:
+  serverName: root # 用于区分子服
+  showSaveMessages: true # 控制台是否输出保存信息
+  saveAsync: true # 是否异步保存数据

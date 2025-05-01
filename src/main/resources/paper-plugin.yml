@@ -1,0 +1,21 @@
+name: statisticsSaver
+version: '0.1.0'
+main: com.miaomc.statisticsSaver.StatisticsSaver
+api-version: '1.21'
+prefix: StatisticSaver
+load: STARTUP
+authors: [ KumaKorin ]
+description: Save player statistics when player logout
+website: https://korin.im
+
+commands:
+  ssaver:
+    description: StatisticsSaver 命令
+    usage: /ssaver <reload|help>
+    aliases: [ statsaver ]
+    permission: statisticssaver.use
+    
+permissions:
+  statisticssaver.admin:
+    description: 允许管理 StatisticsSaver 插件
+    default: op
