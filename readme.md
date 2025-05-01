@@ -1,7 +1,7 @@
 # StatisticsSaver
 
 StatisticsSaver 是一个用于 Minecraft Paper 服务器的插件，主要功能是保存玩家统计数据。此插件可以将玩家的统计数据保存到
-MySQL 数据库中，方便服务器管理员进行数据分析和备份。
+MySQL 数据库中，可配合后端获取玩家游戏信息，便于在网站上展示。
 
 ## 功能特点
 
