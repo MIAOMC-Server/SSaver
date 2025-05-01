@@ -1,5 +1,5 @@
 name: statisticsSaver
-version: '0.1.1'
+version: '0.1.2'
 main: com.miaomc.statisticsSaver.StatisticsSaver
 api-version: '1.21'
 prefix: StatisticSaver
@@ -19,3 +19,6 @@ permissions:
   statisticssaver.admin:
     description: 允许管理 StatisticsSaver 插件
     default: op
+  statisticssaver.track:
+    description: 允许玩家的统计数据被记录
+    default: true

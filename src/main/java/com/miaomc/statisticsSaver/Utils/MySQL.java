@@ -342,6 +342,7 @@ public class MySQL {
      * @param uuid 玩家UUID
      * @return 包含玩家数据的JSONObject，如果没有找到则返回null
      */
+    @SuppressWarnings("unused")
     public CompletableFuture<JSONObject> getPlayerData(String uuid) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT data FROM " + tableName + " WHERE uuid = ? AND serverName = ?";

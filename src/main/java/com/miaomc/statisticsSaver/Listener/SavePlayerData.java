@@ -10,16 +10,21 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-public class savePlayerData implements Listener {
+public class SavePlayerData implements Listener {
 
     private final StatisticsSaver plugin;
 
-    // 缓存常用的统计类型，提高性能
+    private final Map<UUID, Long> playerJoinTimes = new ConcurrentHashMap<>();
+
+    // 缓存常用地统计类型，提高性能
     private static final Statistic[] UNTYPED_STATISTICS;
     private static final Statistic[] BLOCK_STATISTICS = {
             Statistic.MINE_BLOCK,
@@ -46,7 +51,13 @@ public class savePlayerData implements Listener {
                 .toArray(Statistic[]::new);
     }
 
-    public savePlayerData(StatisticsSaver plugin) {
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        playerJoinTimes.put(player.getUniqueId(), System.currentTimeMillis());
+    }
+
+    public SavePlayerData(StatisticsSaver plugin) {
         this.plugin = plugin;
         plugin.getLogger().info("玩家数据保存监听器已注册");
     }
@@ -54,6 +65,25 @@ public class savePlayerData implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+
+        // 检查玩家是否刚刚加入游戏
+        Long joinTime = playerJoinTimes.get(playerId);
+        long sessionTime = joinTime != null ? System.currentTimeMillis() - joinTime : Long.MAX_VALUE;
+
+        // 清理记录
+        playerJoinTimes.remove(playerId);
+
+        // 如果会话时间少于最小时间，跳过保存
+        // 60秒，单位毫秒
+        long MINIMUM_SESSION_TIME = plugin.getConfig().getLong("settings.minSessionTime", 60) * 1000;
+        if (sessionTime < MINIMUM_SESSION_TIME) {
+            int seconds = (int) (MINIMUM_SESSION_TIME / 1000);
+            plugin.getLogger().info("玩家 " + player.getName() + " 在线时间不足 " + seconds + " 秒，跳过数据保存");
+            return;
+        }
+
+        // 继续正常保存逻辑
         savePlayerStatistics(player);
     }
 
@@ -63,6 +93,12 @@ public class savePlayerData implements Listener {
      * @param player 要保存数据的玩家
      */
     private void savePlayerStatistics(Player player) {
+
+        // 如果没有权限，直接返回，不保存数据
+        if (!player.hasPermission("statisticssaver.track")) {
+            return;
+        }
+
         UUID uuid = player.getUniqueId();
         String playerName = player.getName();
 
@@ -128,14 +164,67 @@ public class savePlayerData implements Listener {
      */
     private JSONObject collectGeneralStatistics(Player player, String playerName) {
         JSONObject generalStats = new JSONObject();
+        boolean hasMineBlock = false;
+        boolean hasPlaceBlock = false;
+
         for (Statistic stat : UNTYPED_STATISTICS) {
             try {
                 generalStats.put(stat.name(), player.getStatistic(stat));
+                if (stat == Statistic.MINE_BLOCK) {
+                    hasMineBlock = true;
+                }
+                if (stat == Statistic.USE_ITEM) {
+                    hasPlaceBlock = true;
+                }
             } catch (Exception e) {
                 plugin.getLogger().log(Level.WARNING, "获取玩家 " + playerName + " 的统计数据 " + stat.name() + " 时出错", e);
             }
         }
+
+        // 只有在 UNTYPED_STATISTICS 中不包含 MINE_BLOCK 时才添加
+        if (!hasMineBlock) {
+            try {
+                int totalMined = 0;
+                for (Material material : VALID_BLOCK_MATERIALS) {
+                    try {
+                        totalMined += player.getStatistic(Statistic.MINE_BLOCK, material);
+                    } catch (IllegalArgumentException | UnsupportedOperationException ignored) {
+                        // 忽略不支持的方块材质
+                    }
+                }
+                generalStats.put("TOTAL_BLOCKS_MINED", totalMined);
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING, "获取玩家 " + playerName + " 的方块挖掘总数时出错", e);
+            }
+        }
+
+        // 添加方块放置总数的统计
+        if (!hasPlaceBlock) {
+            try {
+                int totalPlaced = 0;
+                for (Material material : VALID_BLOCK_MATERIALS) {
+                    try {
+                        totalPlaced += player.getStatistic(Statistic.USE_ITEM, material);
+                    } catch (IllegalArgumentException | UnsupportedOperationException ignored) {
+                        // 忽略不支持的方块材质
+                    }
+                }
+                generalStats.put("TOTAL_BLOCKS_PLACED", totalPlaced);
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING, "获取玩家 " + playerName + " 的方块放置总数时出错", e);
+            }
+        }
+
         return generalStats;
+    }
+
+    private static final Material[] VALID_BLOCK_MATERIALS;
+
+    static {
+        // 在类加载时初始化有效方块材质列表
+        VALID_BLOCK_MATERIALS = java.util.Arrays.stream(Material.values())
+                .filter(material -> !material.isLegacy() && material.isBlock())
+                .toArray(Material[]::new);
     }
 
     /**
@@ -147,19 +236,14 @@ public class savePlayerData implements Listener {
     private JSONObject collectBlockStatistics(Player player) {
         JSONObject blockStats = new JSONObject();
 
-        for (Material material : Material.values()) {
-            // 跳过旧版材质和非方块材质
-            if (material.isLegacy() || !material.isBlock()) {
-                continue;
-            }
-
+        for (Material material : VALID_BLOCK_MATERIALS) {
             try {
                 for (Statistic stat : BLOCK_STATISTICS) {
                     int count = player.getStatistic(stat, material);
                     if (count > 0) {
                         String key = stat == Statistic.MINE_BLOCK ?
                                 "MINE_" + material.name() :
-                                "PLACE_" + material.name();
+                                "USE_" + material.name();  // 使用 USE 而不是 PLACE
                         blockStats.put(key, count);
                     }
                 }
@@ -213,9 +297,8 @@ public class savePlayerData implements Listener {
         JSONObject itemStats = new JSONObject();
 
         for (Material material : Material.values()) {
-            // 跳过旧版材质
-            if (material.isLegacy()) {
-                continue;
+            if (material.isLegacy() || !material.isItem()) {
+                continue;  // 跳过旧版材质和非物品材质
             }
 
             try {
