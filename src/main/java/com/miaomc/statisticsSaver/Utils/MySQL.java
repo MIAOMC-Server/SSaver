@@ -8,6 +8,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.sql.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
@@ -130,14 +133,13 @@ public class MySQL {
      */
     private void createTable(Connection connection) throws SQLException {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " ("
-                + "id INT AUTO_INCREMENT PRIMARY KEY, "
                 + "uuid VARCHAR(36) NOT NULL, "
                 + "serverName VARCHAR(50) NOT NULL, "
                 + "data LONGTEXT NOT NULL, "
                 + "dataVersion VARCHAR(20) NOT NULL, "
                 + "updateDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, "
                 + "createDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
-                + "UNIQUE KEY unique_player_server (uuid, serverName), "
+                + "PRIMARY KEY (uuid, serverName), "
                 + "INDEX idx_uuid (uuid)"
                 + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 
@@ -157,58 +159,28 @@ public class MySQL {
         DatabaseMetaData meta = connection.getMetaData();
         Statement statement = connection.createStatement();
 
-        // 检查表中的列
+        // 定义需要的列
+        Map<String, String> requiredColumns = Map.of(
+                "uuid", "VARCHAR(36) NOT NULL",
+                "serverName", "VARCHAR(50) NOT NULL",
+                "data", "LONGTEXT NOT NULL",
+                "dataVersion", "VARCHAR(20) NOT NULL",
+                "updateDate", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                "createDate", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        );
+
+        // 检查表中的现有列
+        Set<String> existingColumns = new HashSet<>();
         try (ResultSet columns = meta.getColumns(null, null, tableName, null)) {
-            boolean hasUUID = false;
-            boolean hasServerName = false;
-            boolean hasData = false;
-            boolean hasDataVersion = false;
-            boolean hasUpdateDate = false;
-            boolean hasCreateDate = false;
-
             while (columns.next()) {
-                String columnName = columns.getString("COLUMN_NAME").toLowerCase();
-                switch (columnName) {
-                    case "uuid":
-                        hasUUID = true;
-                        break;
-                    case "servername":
-                        hasServerName = true;
-                        break;
-                    case "data":
-                        hasData = true;
-                        break;
-                    case "dataversion":
-                        hasDataVersion = true;
-                        break;
-                    case "updatedate":
-                        hasUpdateDate = true;
-                        break;
-                    case "createdate":
-                        hasCreateDate = true;
-                        break;
-                }
+                existingColumns.add(columns.getString("COLUMN_NAME").toLowerCase());
             }
+        }
 
-            // 添加缺少的列
-            if (!hasUUID) {
-                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN uuid VARCHAR(36) NOT NULL");
-            }
-            if (!hasServerName) {
-                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN serverName VARCHAR(50) NOT NULL");
-            }
-            if (!hasData) {
-                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN data LONGTEXT NOT NULL");
-            }
-            if (!hasDataVersion) {
-                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN dataVersion VARCHAR(20) NOT NULL");
-            }
-            if (!hasUpdateDate) {
-                statement.executeUpdate("ALTER TABLE " + tableName +
-                        " ADD COLUMN updateDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-            }
-            if (!hasCreateDate) {
-                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN createDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+        // 添加缺失的列
+        for (Map.Entry<String, String> entry : requiredColumns.entrySet()) {
+            if (!existingColumns.contains(entry.getKey().toLowerCase())) {
+                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + entry.getKey() + " " + entry.getValue());
             }
         }
 
