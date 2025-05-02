@@ -1,4 +1,4 @@
-package com.miaomc.statisticsSaver.Utils;
+package com.miaomc.ssaver.Utils;
 
 public class UpdateConfig {
     /*

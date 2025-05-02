@@ -1,7 +1,7 @@
-package com.miaomc.statisticsSaver.Listener;
+package com.miaomc.ssaver.Listener;
 
 import com.alibaba.fastjson.JSONObject;
-import com.miaomc.statisticsSaver.StatisticsSaver;
+import com.miaomc.ssaver.SSaver;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Statistic;
@@ -20,7 +20,7 @@ import java.util.logging.Level;
 
 public class SavePlayerData implements Listener {
 
-    private final StatisticsSaver plugin;
+    private final SSaver plugin;
 
     private final Map<UUID, Long> playerJoinTimes = new ConcurrentHashMap<>();
 
@@ -57,7 +57,7 @@ public class SavePlayerData implements Listener {
         playerJoinTimes.put(player.getUniqueId(), System.currentTimeMillis());
     }
 
-    public SavePlayerData(StatisticsSaver plugin) {
+    public SavePlayerData(SSaver plugin) {
         this.plugin = plugin;
         plugin.getLogger().info("玩家数据保存监听器已注册");
     }
@@ -65,71 +65,62 @@ public class SavePlayerData implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        UUID playerId = player.getUniqueId();
 
-        // 检查玩家是否刚刚加入游戏
-        Long joinTime = playerJoinTimes.get(playerId);
-        long sessionTime = joinTime != null ? System.currentTimeMillis() - joinTime : Long.MAX_VALUE;
-
-        // 清理记录
-        playerJoinTimes.remove(playerId);
-
-        // 如果会话时间少于最小时间，跳过保存
-        // 60秒，单位毫秒
-        long MINIMUM_SESSION_TIME = plugin.getConfig().getLong("settings.minSessionTime", 60) * 1000;
-        if (sessionTime < MINIMUM_SESSION_TIME) {
-            int seconds = (int) (MINIMUM_SESSION_TIME / 1000);
-            plugin.getLogger().info("玩家 " + player.getName() + " 在线时间不足 " + seconds + " 秒，跳过数据保存");
-            return;
-        }
-
-        // 继续正常保存逻辑
+        // 保存玩家数据
         savePlayerStatistics(player);
     }
 
     /**
-     * 保存玩家的所有统计数据
+     * 保存玩家的统计数据
      *
-     * @param player 要保存数据的玩家
+     * @param player 玩家
      */
-    private void savePlayerStatistics(Player player) {
-
-        // 如果没有权限，直接返回，不保存数据
-        if (!player.hasPermission("statisticssaver.track")) {
-            return;
-        }
-
+    public void savePlayerStatistics(Player player) {
         UUID uuid = player.getUniqueId();
         String playerName = player.getName();
 
+        // 获取玩家加入时的时间戳
+        Long joinTime = playerJoinTimes.remove(uuid);
+        if (joinTime == null) {
+            plugin.getLogger().warning("无法获取玩家 " + player.getName() + " 的加入时间，跳过统计");
+            return;
+        }
+
+        // 计算在线时间（秒）
+        long sessionTimeInSeconds = Math.max(0, (System.currentTimeMillis() - joinTime) / 1000);
+
         try {
-            // 获取服务器的Minecraft版本，增加健壮性
-            String dataVersion = getMcVersion();
+            // 从数据库获取现有数据
+            JSONObject existingData = plugin.getMySQL().getPlayerData(uuid.toString()).join();
+            if (existingData == null) {
+                existingData = new JSONObject();
+            }
 
-            // 创建JSON对象存储所有统计数据
-            JSONObject statisticsData = new JSONObject();
-            statisticsData.put("playerName", playerName);
+            // 获取或创建 meta 对象
+            JSONObject meta = existingData.getJSONObject("meta");
+            if (meta == null) {
+                meta = new JSONObject();
+            }
 
-            // 收集各类统计数据
-            statisticsData.put("general", collectGeneralStatistics(player, playerName));
-            statisticsData.put("blocks", collectBlockStatistics(player));
-            statisticsData.put("entities", collectEntityStatistics(player));
-            statisticsData.put("items", collectItemStatistics(player));
+            // 累加在线时间
+            long totalOnlineTime = meta.getLongValue("onlineTimeInSeconds") + sessionTimeInSeconds;
+            meta.put("onlineTimeInSeconds", totalOnlineTime);
+            meta.put("firstJoinDate", player.getFirstPlayed());
+            meta.put("playerName", playerName);
+            existingData.put("meta", meta);
 
-            // 保存统计数据到数据库
-            plugin.getMySQL().saveData(uuid.toString(), statisticsData, dataVersion)
-                    .thenAccept(success -> {
-                        if (success) {
-                            plugin.getLogger().info("成功保存玩家 " + playerName + " 的统计数据 (版本: " + dataVersion + ")");
-                        } else {
-                            plugin.getLogger().warning("保存玩家 " + playerName + " 的统计数据失败，请检查数据库连接");
-                        }
-                    })
-                    .exceptionally(ex -> {
-                        plugin.getLogger().log(Level.SEVERE, "处理玩家 " + playerName + " 的统计数据保存结果时发生异常", ex);
-                        return null;
-                    });
+            // 检查是否达到最小在线时间
+            long MINIMUM_SESSION_TIME = plugin.getConfig().getLong("settings.minSessionTime", 60);
+            if (sessionTimeInSeconds >= MINIMUM_SESSION_TIME) {
+                // 更新统计数据
+                existingData.put("general", collectGeneralStatistics(player, playerName));
+                existingData.put("blocks", collectBlockStatistics(player));
+                existingData.put("entities", collectEntityStatistics(player));
+                existingData.put("items", collectItemStatistics(player));
+            }
 
+            // 保存更新后的数据
+            plugin.getMySQL().saveData(uuid.toString(), existingData, getMcVersion());
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "保存玩家 " + playerName + " 的统计数据时发生错误", e);
         }

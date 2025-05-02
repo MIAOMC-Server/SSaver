@@ -1,7 +1,7 @@
-package com.miaomc.statisticsSaver.Utils;
+package com.miaomc.ssaver.Utils;
 
 import com.alibaba.fastjson.JSONObject;
-import com.miaomc.statisticsSaver.StatisticsSaver;
+import com.miaomc.ssaver.SSaver;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
 public class MySQL {
-    private final StatisticsSaver plugin;
+    private final SSaver plugin;
     private HikariDataSource dataSource;
     private final String tableName;
     private final String serverName;
@@ -25,7 +25,7 @@ public class MySQL {
      *
      * @param plugin 插件实例
      */
-    public MySQL(StatisticsSaver plugin) {
+    public MySQL(SSaver plugin) {
         this.plugin = plugin;
         FileConfiguration config = plugin.getConfig();
         String configTableName = config.getString("database.tableName");
@@ -52,7 +52,7 @@ public class MySQL {
         hikariConfig.setPassword(password);
         hikariConfig.setMaximumPoolSize(10);
         hikariConfig.setConnectionTimeout(30000);
-        hikariConfig.setPoolName("StatisticsSaver-Pool");
+        hikariConfig.setPoolName("SSaver-Pool");
         hikariConfig.setMinimumIdle(3);
         hikariConfig.setIdleTimeout(60000);
         hikariConfig.setMaxLifetime(1800000);
