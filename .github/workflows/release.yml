@@ -45,7 +45,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            target/SSaver-*.jar
+            target/ssaver-*.jar
           body: |
             ## 📦 SSaver 插件 ${{ steps.get_version.outputs.VERSION }} 发布
             
