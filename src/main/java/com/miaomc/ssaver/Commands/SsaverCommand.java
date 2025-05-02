@@ -1,6 +1,6 @@
-package com.miaomc.statisticsSaver.Commands;
+package com.miaomc.ssaver.Commands;
 
-import com.miaomc.statisticsSaver.StatisticsSaver;
+import com.miaomc.ssaver.SSaver;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -14,9 +14,9 @@ import java.util.stream.Collectors;
 
 public class SsaverCommand implements CommandExecutor, TabCompleter {
 
-    private final StatisticsSaver plugin;
+    private final SSaver plugin;
 
-    public SsaverCommand(StatisticsSaver plugin) {
+    public SsaverCommand(SSaver plugin) {
         this.plugin = plugin;
         // 不在构造函数中设置执行器，移到外部处理
     }
@@ -25,7 +25,7 @@ public class SsaverCommand implements CommandExecutor, TabCompleter {
     public void register() {
         Command command = new Command("ssaver") {
             @Override
-            public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String @NotNull [] args) {
+            public boolean execute(@NotNull CommandSender sender, String commandLabel, @NotNull String @NotNull [] args) {
                 return SsaverCommand.this.onCommand(sender, this, commandLabel, args);
             }
 
@@ -35,11 +35,11 @@ public class SsaverCommand implements CommandExecutor, TabCompleter {
             }
         };
 
-        command.setDescription("StatisticsSaver 命令");
+        command.setDescription("SSaver 命令");
         command.setUsage("/ssaver <reload|help>");
 
         // 注册到命令映射中
-        plugin.getServer().getCommandMap().register("statisticssaver", command);
+        plugin.getServer().getCommandMap().register("miaomc.ssaver", command);
         plugin.getLogger().info("命令 'ssaver' 已注册");
     }
 
@@ -53,7 +53,7 @@ public class SsaverCommand implements CommandExecutor, TabCompleter {
 
         switch (args[0].toLowerCase()) {
             case "reload":
-                if (!sender.hasPermission("statisticssaver.admin")) {
+                if (!sender.hasPermission("miaomc.ssaver.admin")) {
                     sender.sendMessage("§c你没有权限执行此命令！");
                     return true;
                 }
@@ -80,7 +80,7 @@ public class SsaverCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage("§6StatisticsSaver 命令帮助：");
+        sender.sendMessage("§6SSaver 命令帮助：");
         sender.sendMessage("§e/ssaver reload §7- 重新加载配置");
         sender.sendMessage("§e/ssaver help §7- 显示此帮助");
     }
@@ -90,7 +90,7 @@ public class SsaverCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            if (sender.hasPermission("statisticssaver.admin")) {
+            if (sender.hasPermission("miaomc.ssaver.admin")) {
                 completions.add("reload");
             }
             completions.add("help");
