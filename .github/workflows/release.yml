@@ -41,13 +41,13 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          name: StatisticsSaver ${{ steps.get_version.outputs.VERSION }}
+          name: SSaver ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
           files: |
-            target/statisticsSaver-*.jar
+            target/SSaver-*.jar
           body: |
-            ## 📦 StatisticsSaver 插件 ${{ steps.get_version.outputs.VERSION }} 发布
+            ## 📦 SSaver 插件 ${{ steps.get_version.outputs.VERSION }} 发布
             
             ### 📋 版本说明
             支持Minecraft 1.21.X
