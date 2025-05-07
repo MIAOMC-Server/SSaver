@@ -1,6 +1,6 @@
 package com.miaomc.ssaver.listener;
 
-import com.alibaba.fastjson.JSONObject;
+import com.google.gson.JsonObject;
 import com.miaomc.ssaver.SSaver;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -91,32 +91,39 @@ public class SavePlayerData implements Listener {
 
         try {
             // 从数据库获取现有数据
-            JSONObject existingData = plugin.getMySQL().getPlayerData(uuid.toString()).join();
+            JsonObject existingData = plugin.getMySQL().getPlayerData(uuid.toString()).join();
             if (existingData == null) {
-                existingData = new JSONObject();
+                existingData = new JsonObject();
             }
 
             // 获取或创建 meta 对象
-            JSONObject meta = existingData.getJSONObject("meta");
-            if (meta == null) {
-                meta = new JSONObject();
+            JsonObject meta;
+            if (existingData.has("meta")) {
+                meta = existingData.getAsJsonObject("meta");
+            } else {
+                meta = new JsonObject();
             }
 
             // 累加在线时间
-            long totalOnlineTime = meta.getLongValue("onlineTimeInSeconds") + sessionTimeInSeconds;
-            meta.put("onlineTimeInSeconds", totalOnlineTime);
-            meta.put("firstJoinDate", player.getFirstPlayed());
-            meta.put("playerName", playerName);
-            existingData.put("meta", meta);
+            long totalOnlineTime = 0;
+            if (meta.has("onlineTimeInSeconds")) {
+                totalOnlineTime = meta.get("onlineTimeInSeconds").getAsLong();
+            }
+            totalOnlineTime += sessionTimeInSeconds;
+
+            meta.addProperty("onlineTimeInSeconds", totalOnlineTime);
+            meta.addProperty("firstJoinDate", player.getFirstPlayed());
+            meta.addProperty("playerName", playerName);
+            existingData.add("meta", meta);
 
             // 检查是否达到最小在线时间
             long MINIMUM_SESSION_TIME = plugin.getConfig().getLong("settings.minSessionTime", 60);
             if (sessionTimeInSeconds >= MINIMUM_SESSION_TIME) {
                 // 更新统计数据
-                existingData.put("general", collectGeneralStatistics(player, playerName));
-                existingData.put("blocks", collectBlockStatistics(player));
-                existingData.put("entities", collectEntityStatistics(player));
-                existingData.put("items", collectItemStatistics(player));
+                existingData.add("general", collectGeneralStatistics(player, playerName));
+                existingData.add("blocks", collectBlockStatistics(player));
+                existingData.add("entities", collectEntityStatistics(player));
+                existingData.add("items", collectItemStatistics(player));
             }
 
             // 保存更新后的数据
@@ -153,14 +160,14 @@ public class SavePlayerData implements Listener {
      * @param playerName 玩家名称（用于日志）
      * @return 包含通用统计的JSON对象
      */
-    private JSONObject collectGeneralStatistics(Player player, String playerName) {
-        JSONObject generalStats = new JSONObject();
+    private JsonObject collectGeneralStatistics(Player player, String playerName) {
+        JsonObject generalStats = new JsonObject();
         boolean hasMineBlock = false;
         boolean hasPlaceBlock = false;
 
         for (Statistic stat : UNTYPED_STATISTICS) {
             try {
-                generalStats.put(stat.name(), player.getStatistic(stat));
+                generalStats.addProperty(stat.name(), player.getStatistic(stat));
                 if (stat == Statistic.MINE_BLOCK) {
                     hasMineBlock = true;
                 }
@@ -183,7 +190,7 @@ public class SavePlayerData implements Listener {
                         // 忽略不支持的方块材质
                     }
                 }
-                generalStats.put("TOTAL_BLOCKS_MINED", totalMined);
+                generalStats.addProperty("TOTAL_BLOCKS_MINED", totalMined);
             } catch (Exception e) {
                 plugin.getLogger().log(Level.WARNING, "获取玩家 " + playerName + " 的方块挖掘总数时出错", e);
             }
@@ -200,7 +207,7 @@ public class SavePlayerData implements Listener {
                         // 忽略不支持的方块材质
                     }
                 }
-                generalStats.put("TOTAL_BLOCKS_PLACED", totalPlaced);
+                generalStats.addProperty("TOTAL_BLOCKS_PLACED", totalPlaced);
             } catch (Exception e) {
                 plugin.getLogger().log(Level.WARNING, "获取玩家 " + playerName + " 的方块放置总数时出错", e);
             }
@@ -224,8 +231,8 @@ public class SavePlayerData implements Listener {
      * @param player 玩家
      * @return 包含方块统计的JSON对象
      */
-    private JSONObject collectBlockStatistics(Player player) {
-        JSONObject blockStats = new JSONObject();
+    private JsonObject collectBlockStatistics(Player player) {
+        JsonObject blockStats = new JsonObject();
 
         for (Material material : VALID_BLOCK_MATERIALS) {
             try {
@@ -235,7 +242,7 @@ public class SavePlayerData implements Listener {
                         String key = stat == Statistic.MINE_BLOCK ?
                                 "MINE_" + material.name() :
                                 "USE_" + material.name();  // 使用 USE 而不是 PLACE
-                        blockStats.put(key, count);
+                        blockStats.addProperty(key, count);
                     }
                 }
             } catch (IllegalArgumentException | UnsupportedOperationException e) {
@@ -255,8 +262,8 @@ public class SavePlayerData implements Listener {
      * @param player 玩家
      * @return 包含实体统计的JSON对象
      */
-    private JSONObject collectEntityStatistics(Player player) {
-        JSONObject entityStats = new JSONObject();
+    private JsonObject collectEntityStatistics(Player player) {
+        JsonObject entityStats = new JsonObject();
 
         for (EntityType entityType : EntityType.values()) {
             try {
@@ -264,7 +271,7 @@ public class SavePlayerData implements Listener {
                     int count = player.getStatistic(stat, entityType);
                     if (count > 0) {
                         String prefix = stat == Statistic.KILL_ENTITY ? "KILL_" : "KILLED_BY_";
-                        entityStats.put(prefix + entityType.name(), count);
+                        entityStats.addProperty(prefix + entityType.name(), count);
                     }
                 }
             } catch (IllegalArgumentException | UnsupportedOperationException e) {
@@ -284,8 +291,8 @@ public class SavePlayerData implements Listener {
      * @param player 玩家
      * @return 包含物品统计的JSON对象
      */
-    private JSONObject collectItemStatistics(Player player) {
-        JSONObject itemStats = new JSONObject();
+    private JsonObject collectItemStatistics(Player player) {
+        JsonObject itemStats = new JsonObject();
 
         for (Material material : Material.values()) {
             if (material.isLegacy() || !material.isItem()) {
@@ -301,7 +308,7 @@ public class SavePlayerData implements Listener {
                         else if (stat == Statistic.BREAK_ITEM) prefix = "BREAK_";
                         else prefix = "CRAFT_";
 
-                        itemStats.put(prefix + material.name(), count);
+                        itemStats.addProperty(prefix + material.name(), count);
                     }
                 }
             } catch (IllegalArgumentException | UnsupportedOperationException e) {

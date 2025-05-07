@@ -1,6 +1,8 @@
 package com.miaomc.ssaver.utils;
 
-import com.alibaba.fastjson.JSONObject;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.miaomc.ssaver.SSaver;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -219,11 +221,12 @@ public class MySQL {
      * @param dataVersion 数据版本
      * @return 操作结果的Future
      */
-    public CompletableFuture<Boolean> saveData(String uuid, JSONObject data, String dataVersion) {
+    public CompletableFuture<Boolean> saveData(String uuid, JsonObject data, String dataVersion) {
+        Gson gson = new Gson();
         if (plugin.getConfig().getBoolean("settings.saveAsync", true)) {
             return saveDataAsync(uuid, data, dataVersion);
         } else {
-            return doSaveData(uuid, data.toJSONString(), dataVersion);
+            return doSaveData(uuid, gson.toJson(data), dataVersion);
         }
     }
 
@@ -272,8 +275,9 @@ public class MySQL {
      * @param dataVersion 数据版本
      * @return 操作结果的Future
      */
-    private CompletableFuture<Boolean> saveDataAsync(String uuid, JSONObject data, String dataVersion) {
+    private CompletableFuture<Boolean> saveDataAsync(String uuid, JsonObject data, String dataVersion) {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
+        Gson gson = new Gson();
 
         new BukkitRunnable() {
             @Override
@@ -284,13 +288,15 @@ public class MySQL {
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement(sql)) {
 
+                    String jsonString = gson.toJson(data);
                     statement.setString(1, uuid);
                     statement.setString(2, serverName);
-                    statement.setString(3, data.toJSONString());
+                    statement.setString(3, jsonString);
                     statement.setString(4, dataVersion);
-                    statement.setString(5, data.toJSONString());
+                    statement.setString(5, jsonString);
                     statement.setString(6, dataVersion);
 
+                    // 其余代码不变
                     int rowsAffected = statement.executeUpdate();
 
                     if (plugin.getConfig().getBoolean("settings.showSaveMessages", true)) {
@@ -315,7 +321,7 @@ public class MySQL {
      * @return 包含玩家数据的JSONObject，如果没有找到则返回null
      */
     @SuppressWarnings("unused")
-    public CompletableFuture<JSONObject> getPlayerData(String uuid) {
+    public CompletableFuture<JsonObject> getPlayerData(String uuid) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT data FROM `" + tablename + "` WHERE uuid = ? AND serverName = ?";
 
@@ -328,7 +334,7 @@ public class MySQL {
                 try (ResultSet resultSet = statement.executeQuery()) {
                     if (resultSet.next()) {
                         String jsonData = resultSet.getString("data");
-                        return JSONObject.parseObject(jsonData);
+                        return JsonParser.parseString(jsonData).getAsJsonObject();
                     }
                 }
             } catch (SQLException e) {
