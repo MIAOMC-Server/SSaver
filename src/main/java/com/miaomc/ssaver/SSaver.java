@@ -1,8 +1,8 @@
 package com.miaomc.ssaver;
 
-import com.miaomc.ssaver.Commands.SsaverCommand;
-import com.miaomc.ssaver.Listener.SavePlayerData;
-import com.miaomc.ssaver.Utils.MySQL;
+import com.miaomc.ssaver.commands.SsaverCommand;
+import com.miaomc.ssaver.listener.SavePlayerData;
+import com.miaomc.ssaver.utils.MySQL;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 

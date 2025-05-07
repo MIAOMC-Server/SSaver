@@ -1,5 +1,5 @@
-name: ssaver
-version: '0.1.4'
+name: SSaver
+version: '${project.version}'
 main: com.miaomc.ssaver.SSaver
 api-version: '1.21'
 prefix: SSaver

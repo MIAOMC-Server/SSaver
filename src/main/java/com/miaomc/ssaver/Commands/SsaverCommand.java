@@ -1,4 +1,4 @@
-package com.miaomc.ssaver.Commands;
+package com.miaomc.ssaver.commands;
 
 import com.miaomc.ssaver.SSaver;
 import org.bukkit.command.Command;

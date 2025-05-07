@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.miaomc</groupId>
-    <artifactId>ssaver</artifactId>
-    <version>0.1.4</version>
+    <artifactId>SSaver</artifactId>
+    <version>0.1.5</version>
     <packaging>jar</packaging>
 
-    <name>ssaver</name>
+    <name>SSaver</name>
 
     <properties>
         <java.version>21</java.version>

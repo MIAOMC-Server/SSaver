@@ -1,4 +1,4 @@
-package com.miaomc.ssaver.Utils;
+package com.miaomc.ssaver.utils;
 
 import com.alibaba.fastjson.JSONObject;
 import com.miaomc.ssaver.SSaver;
@@ -132,7 +132,7 @@ public class MySQL {
      * @throws SQLException SQL异常
      */
     private void createTable(Connection connection) throws SQLException {
-        String createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " ("
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS `" + tableName + "` ("
                 + "uuid VARCHAR(36) NOT NULL, "
                 + "serverName VARCHAR(50) NOT NULL, "
                 + "data LONGTEXT NOT NULL, "
@@ -180,7 +180,7 @@ public class MySQL {
         // 添加缺失的列
         for (Map.Entry<String, String> entry : requiredColumns.entrySet()) {
             if (!existingColumns.contains(entry.getKey().toLowerCase())) {
-                statement.executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + entry.getKey() + " " + entry.getValue());
+                statement.executeUpdate("ALTER TABLE `" + tableName + "` ADD COLUMN " + entry.getKey() + " " + entry.getValue());
             }
         }
 
@@ -199,8 +199,8 @@ public class MySQL {
         // 添加缺少的唯一索引
         if (!hasUniqueIndex) {
             try {
-                statement.executeUpdate("ALTER TABLE " + tableName +
-                        " ADD CONSTRAINT unique_player_server UNIQUE (uuid, serverName)");
+                statement.executeUpdate("ALTER TABLE `" + tableName +
+                        "` ADD CONSTRAINT unique_player_server UNIQUE (uuid, serverName)");
                 plugin.getLogger().info("为表 " + tableName + " 添加唯一索引 unique_player_server");
             } catch (SQLException e) {
                 plugin.getLogger().warning("添加唯一索引失败: " + e.getMessage());
@@ -237,7 +237,7 @@ public class MySQL {
      */
     private CompletableFuture<Boolean> doSaveData(String uuid, String jsonData, String dataVersion) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "INSERT INTO " + tableName + " (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
+            String sql = "INSERT INTO `" + tableName + "` (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
                     "ON DUPLICATE KEY UPDATE data = ?, dataVersion = ?, updateDate = CURRENT_TIMESTAMP";
 
             try (Connection connection = dataSource.getConnection();
@@ -278,7 +278,7 @@ public class MySQL {
         new BukkitRunnable() {
             @Override
             public void run() {
-                String sql = "INSERT INTO " + tableName + " (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
+                String sql = "INSERT INTO `" + tableName + "` (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
                         "ON DUPLICATE KEY UPDATE data = ?, dataVersion = ?, updateDate = CURRENT_TIMESTAMP";
 
                 try (Connection connection = dataSource.getConnection();
@@ -317,7 +317,7 @@ public class MySQL {
     @SuppressWarnings("unused")
     public CompletableFuture<JSONObject> getPlayerData(String uuid) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT data FROM " + tableName + " WHERE uuid = ? AND serverName = ?";
+            String sql = "SELECT data FROM `" + tableName + "` WHERE uuid = ? AND serverName = ?";
 
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {

@@ -1,4 +1,4 @@
-package com.miaomc.ssaver.Utils;
+package com.miaomc.ssaver.utils;
 
 public class UpdateConfig {
     /*
