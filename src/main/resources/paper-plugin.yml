@@ -13,7 +13,7 @@ commands:
     description: SSaver 命令
     usage: /ssaver <reload|help>
     aliases: [ statsaver ]
-    permission: miaomc.ssaver.use
+    permission: miaomc.ssaver.admin
 
 permissions:
   miaomc.ssaver.admin:

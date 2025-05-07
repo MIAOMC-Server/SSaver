@@ -5,7 +5,7 @@ database:
   name: dbName # 数据库名称
   username: userName # 数据库用户名
   password: userPassword # 数据库密码
-  tableName: playerStatistics # 创建的数据表的名称
+  tablename: playerstatistics # 创建的数据表的名称
 settings:
   serverName: root # 默认 root 用于区分子服
   showSaveMessages: true # 控制台是否输出保存信息

@@ -17,7 +17,7 @@ import java.util.logging.Level;
 public class MySQL {
     private final SSaver plugin;
     private HikariDataSource dataSource;
-    private final String tableName;
+    private final String tablename;
     private final String serverName;
 
     /**
@@ -28,8 +28,8 @@ public class MySQL {
     public MySQL(SSaver plugin) {
         this.plugin = plugin;
         FileConfiguration config = plugin.getConfig();
-        String configTableName = config.getString("database.tableName");
-        this.tableName = (configTableName == null || configTableName.isEmpty()) ? "playerStatistics" : configTableName;
+        String configTableName = config.getString("database.tablename");
+        this.tablename = (configTableName == null || configTableName.isEmpty()) ? "playerStatistics" : configTableName;
         this.serverName = config.getString("settings.serverName", "root");
         setupPool();
     }
@@ -114,7 +114,7 @@ public class MySQL {
         DatabaseMetaData meta = connection.getMetaData();
         boolean tableExists;
 
-        try (ResultSet tables = meta.getTables(null, null, tableName, null)) {
+        try (ResultSet tables = meta.getTables(null, null, tablename, null)) {
             tableExists = tables.next();
         }
 
@@ -132,7 +132,7 @@ public class MySQL {
      * @throws SQLException SQL异常
      */
     private void createTable(Connection connection) throws SQLException {
-        String createTableSQL = "CREATE TABLE IF NOT EXISTS `" + tableName + "` ("
+        String createTableSQL = "CREATE TABLE IF NOT EXISTS `" + tablename + "` ("
                 + "uuid VARCHAR(36) NOT NULL, "
                 + "serverName VARCHAR(50) NOT NULL, "
                 + "data LONGTEXT NOT NULL, "
@@ -145,7 +145,7 @@ public class MySQL {
 
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(createTableSQL);
-            plugin.getLogger().info("成功创建数据表 " + tableName);
+            plugin.getLogger().info("成功创建数据表 " + tablename);
         }
     }
 
@@ -171,7 +171,7 @@ public class MySQL {
 
         // 检查表中的现有列
         Set<String> existingColumns = new HashSet<>();
-        try (ResultSet columns = meta.getColumns(null, null, tableName, null)) {
+        try (ResultSet columns = meta.getColumns(null, null, tablename, null)) {
             while (columns.next()) {
                 existingColumns.add(columns.getString("COLUMN_NAME").toLowerCase());
             }
@@ -180,13 +180,13 @@ public class MySQL {
         // 添加缺失的列
         for (Map.Entry<String, String> entry : requiredColumns.entrySet()) {
             if (!existingColumns.contains(entry.getKey().toLowerCase())) {
-                statement.executeUpdate("ALTER TABLE `" + tableName + "` ADD COLUMN " + entry.getKey() + " " + entry.getValue());
+                statement.executeUpdate("ALTER TABLE `" + tablename + "` ADD COLUMN " + entry.getKey() + " " + entry.getValue());
             }
         }
 
         // 检查唯一索引
         boolean hasUniqueIndex = false;
-        try (ResultSet indexInfo = meta.getIndexInfo(null, null, tableName, true, false)) {
+        try (ResultSet indexInfo = meta.getIndexInfo(null, null, tablename, true, false)) {
             while (indexInfo.next()) {
                 String indexName = indexInfo.getString("INDEX_NAME");
                 if ("unique_player_server".equalsIgnoreCase(indexName)) {
@@ -199,9 +199,9 @@ public class MySQL {
         // 添加缺少的唯一索引
         if (!hasUniqueIndex) {
             try {
-                statement.executeUpdate("ALTER TABLE `" + tableName +
+                statement.executeUpdate("ALTER TABLE `" + tablename +
                         "` ADD CONSTRAINT unique_player_server UNIQUE (uuid, serverName)");
-                plugin.getLogger().info("为表 " + tableName + " 添加唯一索引 unique_player_server");
+                plugin.getLogger().info("为表 " + tablename + " 添加唯一索引 unique_player_server");
             } catch (SQLException e) {
                 plugin.getLogger().warning("添加唯一索引失败: " + e.getMessage());
             }
@@ -237,7 +237,7 @@ public class MySQL {
      */
     private CompletableFuture<Boolean> doSaveData(String uuid, String jsonData, String dataVersion) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "INSERT INTO `" + tableName + "` (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
+            String sql = "INSERT INTO `" + tablename + "` (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
                     "ON DUPLICATE KEY UPDATE data = ?, dataVersion = ?, updateDate = CURRENT_TIMESTAMP";
 
             try (Connection connection = dataSource.getConnection();
@@ -278,7 +278,7 @@ public class MySQL {
         new BukkitRunnable() {
             @Override
             public void run() {
-                String sql = "INSERT INTO `" + tableName + "` (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
+                String sql = "INSERT INTO `" + tablename + "` (uuid, serverName, data, dataVersion) VALUES (?, ?, ?, ?) " +
                         "ON DUPLICATE KEY UPDATE data = ?, dataVersion = ?, updateDate = CURRENT_TIMESTAMP";
 
                 try (Connection connection = dataSource.getConnection();
@@ -317,7 +317,7 @@ public class MySQL {
     @SuppressWarnings("unused")
     public CompletableFuture<JSONObject> getPlayerData(String uuid) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT data FROM `" + tableName + "` WHERE uuid = ? AND serverName = ?";
+            String sql = "SELECT data FROM `" + tablename + "` WHERE uuid = ? AND serverName = ?";
 
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {
