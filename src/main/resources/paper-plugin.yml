@@ -22,3 +22,4 @@ permissions:
   miaomc.ssaver.track:
     description: 允许玩家的统计数据被记录
     default: true
+folia-supported: true
